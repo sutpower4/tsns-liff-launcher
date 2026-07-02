@@ -1,0 +1,13 @@
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6fb;color:#0f172a}
+.shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{width:min(520px,100%);background:white;border-radius:24px;padding:32px;box-shadow:0 18px 45px rgba(15,23,42,.08)}
+.logo{width:64px;height:64px;border-radius:18px;background:#2563eb;color:white;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:24px}
+h1{margin:20px 0 6px;font-size:32px}p{color:#64748b}
+.progress{height:10px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:22px 0}
+#bar{height:100%;width:0%;background:#06c755;transition:.25s}
+.hidden{display:none!important}
+button{width:100%;border:0;border-radius:14px;padding:14px 18px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px}
+.line{background:#06c755;color:white}.primary{background:#2563eb;color:white}
+input{width:100%;box-sizing:border-box;padding:14px;border:1px solid #d1d5db;border-radius:14px;font-size:16px}
+.bind{background:#f8fafc;border:1px dashed #cbd5e1;padding:18px;border-radius:18px;margin:18px 0}
+pre{white-space:pre-wrap;background:#0f172a;color:#e5e7eb;padding:14px;border-radius:14px;max-height:260px;overflow:auto;margin-top:18px}

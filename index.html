@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TSNS LIFF Launcher</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="card">
+      <div class="logo">TS</div>
+      <h1>TSNS Platform</h1>
+      <p id="status">Preparing LIFF Launcher...</p>
+      <div class="progress"><div id="bar"></div></div>
+
+      <div id="bindBox" class="bind hidden">
+        <h2>ผูก LINE กับบัญชี TSNS</h2>
+        <p>กรอก Employee ID เพื่อผูกบัญชี LINE กับผู้ใช้งาน TSNS</p>
+        <input id="employeeId" placeholder="Employee ID เช่น EMP001">
+        <button onclick="bindLine()">Bind LINE</button>
+      </div>
+
+      <button id="loginButton" class="line hidden" onclick="manualLogin()">Login with LINE</button>
+      <button id="openDashboardButton" class="primary hidden" onclick="openDashboard()">Open TSNS Dashboard</button>
+      <pre id="log"></pre>
+    </section>
+  </main>
+  <script src="./config.js"></script>
+  <script src="./launcher.js"></script>
+</body>
+</html>
