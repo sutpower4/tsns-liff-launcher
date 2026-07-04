@@ -108,16 +108,23 @@ function ensureAddFriendBox() {
 
 /**
  * Sprint 7.2.2F
- * Bypass Friend Check when LINE Login Channel is not linked to Messaging API Bot/OA.
+ * Force Add Friend before registration.
+ *
+ * Important:
+ * This version DOES NOT bypass "no login bot linked".
+ * If LINE Login Channel is not linked to Messaging API Bot/OA,
+ * liff.getFriendship() will fail and this function will keep showing Add Friend page.
  */
 async function TSNS_CheckFriendBeforeRegister_() {
   try {
     logStep("CHECK LINE OA FRIENDSHIP");
 
     if (typeof liff === "undefined") {
-      logStep("FRIEND CHECK SKIPPED: LIFF undefined");
-      hideBox("addFriendBox");
-      return true;
+      logStep("FRIEND CHECK FAILED: LIFF undefined");
+      ensureAddFriendBox();
+      hideBox("registerBox");
+      showBox("addFriendBox");
+      return false;
     }
 
     if (!liff.isLoggedIn()) {
@@ -146,13 +153,7 @@ async function TSNS_CheckFriendBeforeRegister_() {
     const msg = String(e && e.message ? e.message : e);
     logStep("FRIEND CHECK ERROR: " + msg);
 
-    if (msg.includes("no login bot linked") || msg.includes("There is no login bot linked")) {
-      logStep("FRIEND CHECK BYPASSED: Login bot not linked");
-      hideBox("addFriendBox");
-      return true;
-    }
-
-    logStep("FRIEND CHECK FAILED");
+    logStep("FRIENDSHIP REQUIRED");
     ensureAddFriendBox();
     hideBox("registerBox");
     showBox("addFriendBox");
