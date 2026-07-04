@@ -111,11 +111,8 @@ async function TSNS_CheckFriendBeforeRegister_() {
     logStep("CHECK LINE OA FRIENDSHIP");
 
     if (typeof liff === "undefined") {
-      logStep("FRIEND CHECK FAILED: LIFF undefined");
-      ensureAddFriendBox();
-      hideBox("registerBox");
-      showBox("addFriendBox");
-      return false;
+      logStep("FRIEND CHECK SKIPPED: LIFF undefined");
+      return true;
     }
 
     if (!liff.isLoggedIn()) {
@@ -142,13 +139,21 @@ async function TSNS_CheckFriendBeforeRegister_() {
 
   } catch (e) {
     logStep("FRIEND CHECK ERROR: " + e.message);
+
+    // สำคัญ: ถ้า LINE Login Channel ยังไม่ได้ผูก Bot
+    // ให้ปล่อยเข้า Register ไม่งั้นจะวนลูป
+    if (String(e.message || "").includes("no login bot linked")) {
+      logStep("FRIEND CHECK BYPASSED: Login bot not linked");
+      hideBox("addFriendBox");
+      return true;
+    }
+
     ensureAddFriendBox();
     hideBox("registerBox");
     showBox("addFriendBox");
     return false;
   }
 }
-
 async function startLauncher() {
   try {
     ensureAddFriendBox();
