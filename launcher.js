@@ -5,12 +5,14 @@ function logStep(message, data) {
   const now = new Date().toLocaleTimeString();
   const line = `[${now}] ${message}`;
   const log = document.getElementById('log');
-  log.textContent += line + (data ? "\n" + JSON.stringify(data, null, 2) : "") + "\n";
-  document.getElementById('status').textContent = message;
+  if (log) log.textContent += line + (data ? "\n" + JSON.stringify(data, null, 2) : "") + "\n";
+  const status = document.getElementById('status');
+  if (status) status.textContent = message;
 }
 
 function setProgress(percent) {
-  document.getElementById('bar').style.width = percent + "%";
+  const bar = document.getElementById('bar');
+  if (bar) bar.style.width = percent + "%";
 }
 
 async function callApi(action, payload) {
@@ -21,6 +23,21 @@ async function callApi(action, payload) {
     body: JSON.stringify(payload || {})
   });
   return await res.json();
+}
+
+function showBox(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove("hidden");
+}
+
+function hideBox(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add("hidden");
+}
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text || "";
 }
 
 async function startLauncher() {
@@ -35,7 +52,7 @@ async function startLauncher() {
     if (!liff.isLoggedIn()) {
       setProgress(40);
       logStep("LOGIN REQUIRED");
-      document.getElementById("loginButton").classList.remove("hidden");
+      showBox("loginButton");
       liff.login();
       return;
     }
@@ -54,31 +71,44 @@ async function startLauncher() {
     tsnsLoginResult = await callApi("LINE_LOGIN", { profile: tsnsProfile });
     logStep("API RESPONSE", tsnsLoginResult);
 
-    if (!tsnsLoginResult.ok && tsnsLoginResult.needBind) {
-      setProgress(80);
-      logStep("BIND REQUIRED");
-      document.getElementById("bindBox").classList.remove("hidden");
+    if (tsnsLoginResult.ok) {
+      setProgress(100);
+      logStep("LOGIN SUCCESS");
+      sessionStorage.setItem("TSNS_CURRENT_USER", JSON.stringify(tsnsLoginResult.currentUser));
+      sessionStorage.setItem("TSNS_SESSION", JSON.stringify(tsnsLoginResult.session || {}));
+      showBox("openDashboardButton");
+      setTimeout(openDashboard, 900);
       return;
     }
 
-    if (!tsnsLoginResult.ok) {
-      setProgress(80);
-      logStep("LOGIN FAILED", tsnsLoginResult);
+    if (tsnsLoginResult.needApproval || tsnsLoginResult.route === "PENDING") {
+      setProgress(85);
+      logStep("PENDING APPROVAL", tsnsLoginResult);
+      setText("pendingRequestId", tsnsLoginResult.requestId || "");
+      showBox("pendingBox");
       return;
     }
 
-    setProgress(100);
-    logStep("LOGIN SUCCESS");
+    if (tsnsLoginResult.needRegister || tsnsLoginResult.route === "REGISTER") {
+      setProgress(80);
+      logStep("REGISTRATION REQUIRED");
+      setText("lineDisplayName", tsnsProfile.displayName || "");
+      setText("lineUserIdPreview", tsnsProfile.userId || "");
+      if (tsnsLoginResult.rejectReason) {
+        setText("rejectReason", tsnsLoginResult.rejectReason);
+        showBox("rejectBox");
+      }
+      showBox("registerBox");
+      return;
+    }
 
-    sessionStorage.setItem("TSNS_CURRENT_USER", JSON.stringify(tsnsLoginResult.currentUser));
-    sessionStorage.setItem("TSNS_SESSION", JSON.stringify(tsnsLoginResult.session || {}));
-
-    document.getElementById("openDashboardButton").classList.remove("hidden");
-    setTimeout(openDashboard, 900);
+    setProgress(80);
+    logStep("LOGIN FAILED", tsnsLoginResult);
+    showBox("loginButton");
 
   } catch (e) {
     logStep("ERROR: " + e.message);
-    document.getElementById("loginButton").classList.remove("hidden");
+    showBox("loginButton");
   }
 }
 
@@ -86,33 +116,48 @@ function manualLogin() {
   liff.login();
 }
 
-async function bindLine() {
-  const employeeId = document.getElementById("employeeId").value.trim();
-  if (!employeeId) {
-    logStep("Employee ID required");
-    return;
-  }
-
+async function submitRegistration() {
   if (!tsnsProfile) {
     logStep("LINE profile missing");
     return;
   }
 
-  logStep("CALL BIND API");
-  const res = await callApi("LINE_BIND", { employeeId, profile: tsnsProfile });
-  logStep("BIND RESPONSE", res);
+  const employeeId = document.getElementById("employeeId").value.trim();
+  const fullName = document.getElementById("fullName").value.trim();
+  const departmentId = document.getElementById("departmentId").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const remark = document.getElementById("remark").value.trim();
 
-  if (res.ok) {
-    document.getElementById("bindBox").classList.add("hidden");
-    tsnsLoginResult = await callApi("LINE_LOGIN", { profile: tsnsProfile });
-    logStep("LOGIN AFTER BIND", tsnsLoginResult);
+  if (!employeeId) return logStep("Employee ID required");
+  if (!fullName) return logStep("Full Name required");
 
-    if (tsnsLoginResult.ok) {
-      sessionStorage.setItem("TSNS_CURRENT_USER", JSON.stringify(tsnsLoginResult.currentUser));
-      sessionStorage.setItem("TSNS_SESSION", JSON.stringify(tsnsLoginResult.session || {}));
-      openDashboard();
-    }
+  setProgress(90);
+  logStep("SUBMIT REGISTRATION");
+
+  const res = await callApi("LINE_REGISTER", {
+    employeeId,
+    fullName,
+    departmentId,
+    email,
+    phone,
+    remark,
+    registerSource: "LIFF",
+    device: navigator.userAgent || "",
+    profile: tsnsProfile
+  });
+
+  logStep("REGISTRATION RESPONSE", res);
+
+  if (res.ok && (res.route === "PENDING" || res.status === "PENDING_APPROVAL")) {
+    hideBox("registerBox");
+    setText("pendingRequestId", res.requestId || "");
+    showBox("pendingBox");
+    setProgress(100);
+    return;
   }
+
+  logStep("REGISTRATION FAILED", res);
 }
 
 function openDashboard() {
