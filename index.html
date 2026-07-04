@@ -1,32 +1,73 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>TSNS LIFF Launcher</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <link rel="stylesheet" href="./style.css">
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:#f4f8fb; margin:0; padding:20px; color:#1f2937; }
+    .wrap { max-width:720px; margin:0 auto; }
+    .card { background:#fff; border-radius:18px; box-shadow:0 10px 30px rgba(0,0,0,.08); padding:20px; margin-top:16px; }
+    h1 { margin:0 0 8px; color:#0277bd; }
+    h3 { margin:0 0 12px; color:#0277bd; }
+    .progress { width:100%; height:10px; background:#dbeafe; border-radius:999px; overflow:hidden; margin:16px 0; }
+    #bar { height:100%; width:0%; background:#0288d1; transition:.25s; }
+    .hidden { display:none; }
+    .field { margin:12px 0; }
+    label { display:block; font-size:13px; color:#4b5563; margin-bottom:5px; font-weight:600; }
+    input, textarea { width:100%; box-sizing:border-box; padding:12px; border:1px solid #cbd5e1; border-radius:12px; font-size:15px; }
+    button { width:100%; border:0; background:#0288d1; color:#fff; padding:13px 16px; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; }
+    .readonly { background:#f1f5f9; padding:10px 12px; border-radius:10px; word-break:break-all; }
+    pre { white-space:pre-wrap; background:#0f172a; color:#d1fae5; border-radius:14px; padding:14px; font-size:12px; max-height:260px; overflow:auto; }
+    .pending { border-left:6px solid #f57c00; }
+    .rejected { border-left:6px solid #c62828; }
+  </style>
 </head>
 <body>
-  <main class="shell">
-    <section class="card">
-      <div class="logo">TS</div>
+  <div class="wrap">
+    <div class="card">
       <h1>TSNS Platform</h1>
-      <p id="status">Preparing LIFF Launcher...</p>
+      <div id="status">Preparing LIFF Launcher...</div>
       <div class="progress"><div id="bar"></div></div>
+      <button id="loginButton" class="hidden" onclick="manualLogin()">Login with LINE</button>
+      <button id="openDashboardButton" class="hidden" onclick="openDashboard()">Open Dashboard</button>
+    </div>
 
-      <div id="bindBox" class="bind hidden">
-        <h2>ผูก LINE กับบัญชี TSNS</h2>
-        <p>กรอก Employee ID เพื่อผูกบัญชี LINE กับผู้ใช้งาน TSNS</p>
-        <input id="employeeId" placeholder="Employee ID เช่น EMP001">
-        <button onclick="bindLine()">Bind LINE</button>
-      </div>
+    <div id="rejectBox" class="hidden card rejected">
+      <h3>Registration Rejected</h3>
+      <p>คำขอลงทะเบียนก่อนหน้าถูกปฏิเสธ</p>
+      <p><strong>Reason:</strong> <span id="rejectReason"></span></p>
+    </div>
 
-      <button id="loginButton" class="line hidden" onclick="manualLogin()">Login with LINE</button>
-      <button id="openDashboardButton" class="primary hidden" onclick="openDashboard()">Open TSNS Dashboard</button>
+    <div id="registerBox" class="hidden card">
+      <h3>TSNS Registration</h3>
+      <p>LINE verified. Please submit your registration information.</p>
+
+      <div class="field"><label>LINE Display Name</label><div id="lineDisplayName" class="readonly"></div></div>
+      <div class="field"><label>LINE User ID</label><div id="lineUserIdPreview" class="readonly"></div></div>
+      <div class="field"><label>Employee ID *</label><input id="employeeId" type="text" placeholder="เช่น 2002-0002"></div>
+      <div class="field"><label>Full Name *</label><input id="fullName" type="text" placeholder="ชื่อ-นามสกุล"></div>
+      <div class="field"><label>Department</label><input id="departmentId" type="text" placeholder="เช่น QA / QC / MF / IT"></div>
+      <div class="field"><label>Email</label><input id="email" type="email" placeholder="company@email.com"></div>
+      <div class="field"><label>Phone</label><input id="phone" type="tel" placeholder="เบอร์โทร"></div>
+      <div class="field"><label>Remark</label><textarea id="remark" rows="3" placeholder="หมายเหตุเพิ่มเติม"></textarea></div>
+
+      <button onclick="submitRegistration()">Submit Registration</button>
+    </div>
+
+    <div id="pendingBox" class="hidden card pending">
+      <h3>Pending Approval</h3>
+      <p>ระบบได้รับคำขอลงทะเบียนแล้ว กรุณารอ Admin ตรวจสอบและอนุมัติ</p>
+      <p><strong>Request ID:</strong> <span id="pendingRequestId"></span></p>
+    </div>
+
+    <div class="card">
+      <h3>Debug Log</h3>
       <pre id="log"></pre>
-    </section>
-  </main>
+    </div>
+  </div>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="./config.js"></script>
   <script src="./launcher.js"></script>
 </body>
