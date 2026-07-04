@@ -1,6 +1,8 @@
 let tsnsProfile = null;
 let tsnsLoginResult = null;
 
+const TSNS_LINE_OA_URL = "https://line.me/R/ti/p/@793baems";
+
 function logStep(message, data) {
   const now = new Date().toLocaleTimeString();
   const line = `[${now}] ${message}`;
@@ -22,7 +24,18 @@ async function callApi(action, payload) {
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify(payload || {})
   });
-  return await res.json();
+
+  const text = await res.text();
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    logStep("API RETURNED NON-JSON", {
+      status: res.status,
+      preview: text.slice(0, 300)
+    });
+    throw new Error("API did not return JSON. Check GAS_API_URL/action.");
+  }
 }
 
 function showBox(id) {
@@ -40,68 +53,106 @@ function setText(id, text) {
   if (el) el.textContent = text || "";
 }
 
-const TSNS_LINE_OA_URL = "https://line.me/R/ti/p/@793baems";
+function ensureAddFriendBox() {
+  let box = document.getElementById("addFriendBox");
+  if (box) return box;
+
+  box = document.createElement("div");
+  box.id = "addFriendBox";
+  box.className = "hidden";
+  box.innerHTML = `
+    <div class="card" style="border-left:5px solid #06C755;">
+      <h2>เพิ่มเพื่อนก่อนลงทะเบียน</h2>
+      <p>
+        กรุณาเพิ่ม <b>TSNS Notification</b> เป็นเพื่อนก่อนลงทะเบียน
+        เพื่อรับผลการอนุมัติและการแจ้งเตือนจากระบบ
+      </p>
+
+      <a href="${TSNS_LINE_OA_URL}"
+         style="
+           display:block;
+           background:#06C755;
+           color:white;
+           text-align:center;
+           padding:14px;
+           border-radius:10px;
+           text-decoration:none;
+           margin-top:18px;
+           font-weight:bold;">
+        เพิ่มเพื่อน LINE OA
+      </a>
+
+      <button onclick="location.reload()"
+              style="
+                width:100%;
+                margin-top:12px;
+                padding:12px;
+                border-radius:10px;
+                border:1px solid #ccc;
+                background:white;
+                font-weight:bold;">
+        ตรวจสอบอีกครั้ง
+      </button>
+    </div>
+  `;
+
+  const registerBox = document.getElementById("registerBox");
+  if (registerBox && registerBox.parentNode) {
+    registerBox.parentNode.insertBefore(box, registerBox);
+  } else {
+    document.body.appendChild(box);
+  }
+
+  return box;
+}
 
 async function TSNS_CheckFriendBeforeRegister_() {
   try {
-    if (typeof liff === "undefined") return true;
+    logStep("CHECK LINE OA FRIENDSHIP");
+
+    if (typeof liff === "undefined") {
+      logStep("FRIEND CHECK FAILED: LIFF undefined");
+      ensureAddFriendBox();
+      hideBox("registerBox");
+      showBox("addFriendBox");
+      return false;
+    }
+
+    if (!liff.isLoggedIn()) {
+      logStep("FRIEND CHECK FAILED: LIFF not logged in");
+      hideBox("registerBox");
+      showBox("loginButton");
+      return false;
+    }
 
     const friendship = await liff.getFriendship();
+    logStep("FRIENDSHIP RESULT", friendship);
 
-    if (friendship.friendFlag) {
+    if (friendship && friendship.friendFlag === true) {
+      logStep("FRIENDSHIP OK");
+      hideBox("addFriendBox");
       return true;
     }
 
-    document.getElementById("registerBox").innerHTML = `
-      <div class="card">
-        <h2>เพิ่มเพื่อนก่อนลงทะเบียน</h2>
-
-        <p>
-          กรุณาเพิ่ม <b>TSNS Notification</b> เป็นเพื่อนก่อน
-          เพื่อรับผลการอนุมัติและการแจ้งเตือนจากระบบ
-        </p>
-
-        <a href="${TSNS_LINE_OA_URL}"
-           style="
-              display:block;
-              background:#06C755;
-              color:white;
-              text-align:center;
-              padding:14px;
-              border-radius:10px;
-              text-decoration:none;
-              margin-top:20px;
-              font-weight:bold;">
-            เพิ่มเพื่อน LINE OA
-        </a>
-
-        <button
-          onclick="location.reload()"
-          style="
-             width:100%;
-             margin-top:12px;
-             padding:12px;
-             border-radius:10px;">
-          ตรวจสอบอีกครั้ง
-        </button>
-
-      </div>
-    `;
-
-    showBox("registerBox");
-
+    logStep("FRIENDSHIP REQUIRED");
+    ensureAddFriendBox();
+    hideBox("registerBox");
+    showBox("addFriendBox");
     return false;
 
-  } catch(err) {
-    console.error(err);
-    return true;
+  } catch (e) {
+    logStep("FRIEND CHECK ERROR: " + e.message);
+    ensureAddFriendBox();
+    hideBox("registerBox");
+    showBox("addFriendBox");
+    return false;
   }
 }
 
-
-
 async function startLauncher() {
   try {
+    ensureAddFriendBox();
+
     setProgress(10);
     logStep("LIFF INIT");
     await liff.init({ liffId: TSNS_CONFIG.LIFF_ID });
@@ -150,27 +201,25 @@ async function startLauncher() {
     }
 
     if (tsnsLoginResult.needRegister || tsnsLoginResult.route === "REGISTER") {
+      setProgress(78);
+      logStep("REGISTRATION CHECK");
 
-    const canRegister =
-        await TSNS_CheckFriendBeforeRegister_();
+      setText("lineDisplayName", tsnsProfile.displayName || "");
+      setText("lineUserIdPreview", tsnsProfile.userId || "");
 
-    if (!canRegister)
-        return;
-
-    setProgress(80);
-    logStep("REGISTRATION REQUIRED");
-
-    setText("lineDisplayName", tsnsProfile.displayName || "");
-    setText("lineUserIdPreview", tsnsProfile.userId || "");
-
-    if (tsnsLoginResult.rejectReason) {
+      if (tsnsLoginResult.rejectReason) {
         setText("rejectReason", tsnsLoginResult.rejectReason);
         showBox("rejectBox");
-    }
+      }
 
-    showBox("registerBox");
-    return;
-}
+      const canRegister = await TSNS_CheckFriendBeforeRegister_();
+      if (!canRegister) return;
+
+      setProgress(80);
+      logStep("REGISTRATION REQUIRED");
+      showBox("registerBox");
+      return;
+    }
 
     setProgress(80);
     logStep("LOGIN FAILED", tsnsLoginResult);
@@ -187,16 +236,13 @@ function manualLogin() {
 }
 
 async function submitRegistration() {
-  const canRegister =
-    await TSNS_CheckFriendBeforeRegister_();
-
-  if (!canRegister)
-    return;
-  
   if (!tsnsProfile) {
     logStep("LINE profile missing");
     return;
   }
+
+  const canRegister = await TSNS_CheckFriendBeforeRegister_();
+  if (!canRegister) return;
 
   const employeeId = document.getElementById("employeeId").value.trim();
   const fullName = document.getElementById("fullName").value.trim();
@@ -227,6 +273,7 @@ async function submitRegistration() {
 
   if (res.ok && (res.route === "PENDING" || res.status === "PENDING_APPROVAL")) {
     hideBox("registerBox");
+    hideBox("addFriendBox");
     setText("pendingRequestId", res.requestId || "");
     showBox("pendingBox");
     setProgress(100);
