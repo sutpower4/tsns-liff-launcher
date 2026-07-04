@@ -106,12 +106,17 @@ function ensureAddFriendBox() {
   return box;
 }
 
+/**
+ * Sprint 7.2.2F
+ * Bypass Friend Check when LINE Login Channel is not linked to Messaging API Bot/OA.
+ */
 async function TSNS_CheckFriendBeforeRegister_() {
   try {
     logStep("CHECK LINE OA FRIENDSHIP");
 
     if (typeof liff === "undefined") {
       logStep("FRIEND CHECK SKIPPED: LIFF undefined");
+      hideBox("addFriendBox");
       return true;
     }
 
@@ -138,27 +143,27 @@ async function TSNS_CheckFriendBeforeRegister_() {
     return false;
 
   } catch (e) {
-    logStep("FRIEND CHECK ERROR: " + e.message);
+    const msg = String(e && e.message ? e.message : e);
+    logStep("FRIEND CHECK ERROR: " + msg);
 
-    // ยังไม่ได้ผูก Login Bot กับ OA
-    if (String(e.message || "").includes("no login bot linked")) {
-        logStep("FRIEND CHECK BYPASSED");
-        hideBox("addFriendBox");
-        return true;
+    if (msg.includes("no login bot linked") || msg.includes("There is no login bot linked")) {
+      logStep("FRIEND CHECK BYPASSED: Login bot not linked");
+      hideBox("addFriendBox");
+      return true;
     }
 
-    // เชื่อมต่อ LINE ไม่ได้จริง
     logStep("FRIEND CHECK FAILED");
-
     ensureAddFriendBox();
     hideBox("registerBox");
     showBox("addFriendBox");
     return false;
+  }
 }
-}
+
 async function startLauncher() {
   try {
     ensureAddFriendBox();
+    hideBox("addFriendBox");
 
     setProgress(10);
     logStep("LIFF INIT");
@@ -224,6 +229,7 @@ async function startLauncher() {
 
       setProgress(80);
       logStep("REGISTRATION REQUIRED");
+      hideBox("addFriendBox");
       showBox("registerBox");
       return;
     }
