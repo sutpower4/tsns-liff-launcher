@@ -140,19 +140,21 @@ async function TSNS_CheckFriendBeforeRegister_() {
   } catch (e) {
     logStep("FRIEND CHECK ERROR: " + e.message);
 
-    // สำคัญ: ถ้า LINE Login Channel ยังไม่ได้ผูก Bot
-    // ให้ปล่อยเข้า Register ไม่งั้นจะวนลูป
+    // ยังไม่ได้ผูก Login Bot กับ OA
     if (String(e.message || "").includes("no login bot linked")) {
-      logStep("FRIEND CHECK BYPASSED: Login bot not linked");
-      hideBox("addFriendBox");
-      return true;
+        logStep("FRIEND CHECK BYPASSED");
+        hideBox("addFriendBox");
+        return true;
     }
+
+    // เชื่อมต่อ LINE ไม่ได้จริง
+    logStep("FRIEND CHECK FAILED");
 
     ensureAddFriendBox();
     hideBox("registerBox");
     showBox("addFriendBox");
     return false;
-  }
+}
 }
 async function startLauncher() {
   try {
