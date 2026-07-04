@@ -40,6 +40,66 @@ function setText(id, text) {
   if (el) el.textContent = text || "";
 }
 
+const TSNS_LINE_OA_URL = "https://line.me/R/ti/p/@793baems";
+
+async function TSNS_CheckFriendBeforeRegister_() {
+  try {
+    if (typeof liff === "undefined") return true;
+
+    const friendship = await liff.getFriendship();
+
+    if (friendship.friendFlag) {
+      return true;
+    }
+
+    document.getElementById("registerBox").innerHTML = `
+      <div class="card">
+        <h2>เพิ่มเพื่อนก่อนลงทะเบียน</h2>
+
+        <p>
+          กรุณาเพิ่ม <b>TSNS Notification</b> เป็นเพื่อนก่อน
+          เพื่อรับผลการอนุมัติและการแจ้งเตือนจากระบบ
+        </p>
+
+        <a href="${TSNS_LINE_OA_URL}"
+           style="
+              display:block;
+              background:#06C755;
+              color:white;
+              text-align:center;
+              padding:14px;
+              border-radius:10px;
+              text-decoration:none;
+              margin-top:20px;
+              font-weight:bold;">
+            เพิ่มเพื่อน LINE OA
+        </a>
+
+        <button
+          onclick="location.reload()"
+          style="
+             width:100%;
+             margin-top:12px;
+             padding:12px;
+             border-radius:10px;">
+          ตรวจสอบอีกครั้ง
+        </button>
+
+      </div>
+    `;
+
+    showBox("registerBox");
+
+    return false;
+
+  } catch(err) {
+    console.error(err);
+    return true;
+  }
+}
+
+
+
 async function startLauncher() {
   try {
     setProgress(10);
@@ -90,17 +150,27 @@ async function startLauncher() {
     }
 
     if (tsnsLoginResult.needRegister || tsnsLoginResult.route === "REGISTER") {
-      setProgress(80);
-      logStep("REGISTRATION REQUIRED");
-      setText("lineDisplayName", tsnsProfile.displayName || "");
-      setText("lineUserIdPreview", tsnsProfile.userId || "");
-      if (tsnsLoginResult.rejectReason) {
+
+    const canRegister =
+        await TSNS_CheckFriendBeforeRegister_();
+
+    if (!canRegister)
+        return;
+
+    setProgress(80);
+    logStep("REGISTRATION REQUIRED");
+
+    setText("lineDisplayName", tsnsProfile.displayName || "");
+    setText("lineUserIdPreview", tsnsProfile.userId || "");
+
+    if (tsnsLoginResult.rejectReason) {
         setText("rejectReason", tsnsLoginResult.rejectReason);
         showBox("rejectBox");
-      }
-      showBox("registerBox");
-      return;
     }
+
+    showBox("registerBox");
+    return;
+}
 
     setProgress(80);
     logStep("LOGIN FAILED", tsnsLoginResult);
@@ -117,6 +187,12 @@ function manualLogin() {
 }
 
 async function submitRegistration() {
+  const canRegister =
+    await TSNS_CheckFriendBeforeRegister_();
+
+  if (!canRegister)
+    return;
+  
   if (!tsnsProfile) {
     logStep("LINE profile missing");
     return;
