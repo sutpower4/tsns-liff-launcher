@@ -53,22 +53,36 @@ function setText(id, text) {
   if (el) el.textContent = text || "";
 }
 
-function ensureAddFriendBox() {
-  let box = document.getElementById("addFriendBox");
-  if (box) return box;
+/**
+ * Sprint 7.2.2F Final Register Flow
+ *
+ * ไม่ใช้ liff.getFriendship()
+ * ไม่บังคับ Friend Check ฝั่ง LIFF
+ * แสดงการ์ด "เพิ่มเพื่อน LINE OA" บนหน้า Register
+ * ผู้ใช้สามารถลงทะเบียนต่อได้ทันที
+ *
+ * Sprint 7.2.2G:
+ * - ใช้ Webhook follow/unfollow
+ * - บันทึก IsFriend
+ * - Approval Engine ตรวจ IsFriend ก่อนอนุมัติ
+ */
+function ensureAddFriendCard() {
+  let card = document.getElementById("addFriendCard");
+  if (card) return card;
 
-  box = document.createElement("div");
-  box.id = "addFriendBox";
-  box.className = "hidden";
-  box.innerHTML = `
-    <div class="card" style="border-left:5px solid #06C755;">
-      <h2>เพิ่มเพื่อนก่อนลงทะเบียน</h2>
+  card = document.createElement("div");
+  card.id = "addFriendCard";
+  card.className = "hidden";
+  card.innerHTML = `
+    <div class="card" style="border-left:5px solid #06C755;margin-bottom:16px;">
+      <h2 style="margin-top:0;">รับการแจ้งเตือนจาก TSNS</h2>
       <p>
-        กรุณาเพิ่ม <b>TSNS Notification</b> เป็นเพื่อนก่อนลงทะเบียน
         เพื่อรับผลการอนุมัติและการแจ้งเตือนจากระบบ
+        กรุณาเพิ่ม <b>TSNS Notification</b> เป็นเพื่อน
       </p>
 
       <a href="${TSNS_LINE_OA_URL}"
+         target="_blank"
          style="
            display:block;
            background:#06C755;
@@ -82,89 +96,32 @@ function ensureAddFriendBox() {
         เพิ่มเพื่อน LINE OA
       </a>
 
-      <button onclick="location.reload()"
-              style="
-                width:100%;
-                margin-top:12px;
-                padding:12px;
-                border-radius:10px;
-                border:1px solid #ccc;
-                background:white;
-                font-weight:bold;">
-        ตรวจสอบอีกครั้ง
-      </button>
+      <div style="font-size:13px;color:#666;margin-top:10px;">
+        * คุณสามารถลงทะเบียนต่อได้ทันที หากยังไม่ได้เพิ่มเพื่อน อาจไม่ได้รับข้อความแจ้งผลอนุมัติ
+      </div>
     </div>
   `;
 
   const registerBox = document.getElementById("registerBox");
   if (registerBox && registerBox.parentNode) {
-    registerBox.parentNode.insertBefore(box, registerBox);
+    registerBox.parentNode.insertBefore(card, registerBox);
   } else {
-    document.body.appendChild(box);
+    document.body.appendChild(card);
   }
 
-  return box;
+  return card;
 }
 
-/**
- * Sprint 7.2.2F
- * Force Add Friend before registration.
- *
- * Important:
- * This version DOES NOT bypass "no login bot linked".
- * If LINE Login Channel is not linked to Messaging API Bot/OA,
- * liff.getFriendship() will fail and this function will keep showing Add Friend page.
- */
-async function TSNS_CheckFriendBeforeRegister_() {
-  try {
-    logStep("CHECK LINE OA FRIENDSHIP");
-
-    if (typeof liff === "undefined") {
-      logStep("FRIEND CHECK FAILED: LIFF undefined");
-      ensureAddFriendBox();
-      hideBox("registerBox");
-      showBox("addFriendBox");
-      return false;
-    }
-
-    if (!liff.isLoggedIn()) {
-      logStep("FRIEND CHECK FAILED: LIFF not logged in");
-      hideBox("registerBox");
-      showBox("loginButton");
-      return false;
-    }
-
-    const friendship = await liff.getFriendship();
-    logStep("FRIENDSHIP RESULT", friendship);
-
-    if (friendship && friendship.friendFlag === true) {
-      logStep("FRIENDSHIP OK");
-      hideBox("addFriendBox");
-      return true;
-    }
-
-    logStep("FRIENDSHIP REQUIRED");
-    ensureAddFriendBox();
-    hideBox("registerBox");
-    showBox("addFriendBox");
-    return false;
-
-  } catch (e) {
-    const msg = String(e && e.message ? e.message : e);
-    logStep("FRIEND CHECK ERROR: " + msg);
-
-    logStep("FRIENDSHIP REQUIRED");
-    ensureAddFriendBox();
-    hideBox("registerBox");
-    showBox("addFriendBox");
-    return false;
-  }
+function showRegisterWithAddFriendCard() {
+  ensureAddFriendCard();
+  showBox("addFriendCard");
+  showBox("registerBox");
 }
 
 async function startLauncher() {
   try {
-    ensureAddFriendBox();
-    hideBox("addFriendBox");
+    ensureAddFriendCard();
+    hideBox("addFriendCard");
 
     setProgress(10);
     logStep("LIFF INIT");
@@ -209,13 +166,16 @@ async function startLauncher() {
       setProgress(85);
       logStep("PENDING APPROVAL", tsnsLoginResult);
       setText("pendingRequestId", tsnsLoginResult.requestId || "");
+
+      ensureAddFriendCard();
+      showBox("addFriendCard");
       showBox("pendingBox");
       return;
     }
 
     if (tsnsLoginResult.needRegister || tsnsLoginResult.route === "REGISTER") {
-      setProgress(78);
-      logStep("REGISTRATION CHECK");
+      setProgress(80);
+      logStep("REGISTRATION REQUIRED");
 
       setText("lineDisplayName", tsnsProfile.displayName || "");
       setText("lineUserIdPreview", tsnsProfile.userId || "");
@@ -225,13 +185,7 @@ async function startLauncher() {
         showBox("rejectBox");
       }
 
-      const canRegister = await TSNS_CheckFriendBeforeRegister_();
-      if (!canRegister) return;
-
-      setProgress(80);
-      logStep("REGISTRATION REQUIRED");
-      hideBox("addFriendBox");
-      showBox("registerBox");
+      showRegisterWithAddFriendCard();
       return;
     }
 
@@ -254,9 +208,6 @@ async function submitRegistration() {
     logStep("LINE profile missing");
     return;
   }
-
-  const canRegister = await TSNS_CheckFriendBeforeRegister_();
-  if (!canRegister) return;
 
   const employeeId = document.getElementById("employeeId").value.trim();
   const fullName = document.getElementById("fullName").value.trim();
@@ -287,8 +238,10 @@ async function submitRegistration() {
 
   if (res.ok && (res.route === "PENDING" || res.status === "PENDING_APPROVAL")) {
     hideBox("registerBox");
-    hideBox("addFriendBox");
     setText("pendingRequestId", res.requestId || "");
+
+    ensureAddFriendCard();
+    showBox("addFriendCard");
     showBox("pendingBox");
     setProgress(100);
     return;
